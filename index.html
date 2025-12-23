@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Parlament – Abstimmung</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    padding: 20px;
+}
+
+h1, h2 {
+    text-align: center;
+}
+
+.section {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+input, select, button {
+    padding: 6px;
+    margin: 4px 0;
+}
+
+.fraktion {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+#halbkreis {
+    width: 500px;
+    height: 250px;
+    margin: 30px auto;
+    border-top-left-radius: 500px;
+    border-top-right-radius: 500px;
+    background: #ddd;
+    position: relative;
+    overflow: hidden;
+}
+
+.sitz {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    position: absolute;
+    transition: background 0.3s;
+}
+
+/* Präsidium-Panel */
+#praesidium {
+    background: #222;
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Historie */
+#abstimmungshistorie {
+    max-height: 200px;
+    overflow-y: auto;
+    background: #fff;
+    padding: 10px;
+    border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+<h1>Parlamentarisches Abstimmungssystem</h1>
+
+<div id="praesidium" class="section">
+    <p>Abstimmungstyp: <span id="typ">---</span></p>
+    <p>Gesamtstimmen: <span id="gesamt">0</span></p>
+    <p>Aktuelle Mehrheit: <span id="aktMehrheit">---</span></p>
+</div>
+
+<div class="section">
+<h2>Mehrheit</h2>
+<select id="mehrheit">
+    <option value="relativ">Relative Mehrheit</option>
+    <option value="absolut">Absolute Mehrheit</option>
+    <option value="zweidrittel">Zweidrittelmehrheit</option>
+</select>
+</div>
+
+<div class="section">
+<h2>Gesamtsitze</h2>
+<input type="number" id="gesamtSitze" value="630">
+</div>
+
+<div class="section">
+<h2>Fraktionen</h2>
+<div id="fraktionen"></div>
+<button onclick="fraktionHinzufuegen()">➕ Fraktion hinzufügen</button>
+</div>
+
+<div class="section">
+<button onclick="berechnen()">Abstimmung berechnen</button>
+</div>
+
+<div id="halbkreis"></div>
+
+<div class="section" id="abstimmungshistorie">
+<h2>Historie aller Abstimmungen</h2>
+<ul id="historie"></ul>
+</div>
+
+<script>
+let fraktionen = [];
+let abstimmungen = [];
+
+function fraktionHinzufuegen() {
+    const f = {
+        name: "Fraktion",
+        sitze: 50,
+        farbe: "#000000",
+        stimme: "ja",
+        abweichler: 0,
+        abweichStimme: "nein"
+    };
+    fraktionen.push(f);
+    renderFraktionen();
+}
+
+function renderFraktionen() {
+    const div = document.getElementById("fraktionen");
+    div.innerHTML = "";
+    fraktionen.forEach((f, i) => {
+        div.innerHTML += `
+        <div class="fraktion">
+            Name: <input value="${f.name}" onchange="fraktionen[${i}].name=this.value"><br>
+            Sitze: <input type="number" value="${f.sitze}" onchange="fraktionen[${i}].sitze=+this.value"><br>
+            Farbe: <input type="color" value="${f.farbe}" onchange="fraktionen[${i}].farbe=this.value"><br>
+            Fraktionsstimme:
+            <select onchange="fraktionen[${i}].stimme=this.value">
+                <option value="ja">Ja</option>
+                <option value="nein">Nein</option>
+                <option value="enthaltung">Enthaltung</option>
+                <option value="keine">Nicht abstimmen</option>
+            </select><br>
+            Abweichler:
+            <input type="number" value="0" onchange="fraktionen[${i}].abweichler=+this.value"><br>
+            Abweichler stimmen:
+            <select onchange="fraktionen[${i}].abweichStimme=this.value">
+                <option value="ja">Ja</option>
+                <option value="nein">Nein</option>
+                <option value="enthaltung">Enthaltung</option>
+            </select>
+        </div>`;
+    });
+}
+
+function berechnen() {
+    let ja=0, nein=0, enth=0;
+    fraktionen.forEach(f => {
+        let basis = f.sitze - f.abweichler;
+        if (f.stimme === "ja") ja += basis;
+        if (f.stimme === "nein") nein += basis;
+        if (f.stimme === "enthaltung") enth += basis;
+
+        if (f.abweichStimme === "ja") ja += f.abweichler;
+        if (f.abweichStimme === "nein") nein += f.abweichler;
+        if (f.abweichStimme === "enthaltung") enth += f.abweichler;
+    });
+
+    const gesamt = ja + nein + enth;
+    const typ = document.getElementById("mehrheit").value;
+    let ergebnisText = "";
+
+    if (typ === "relativ" && ja > nein) ergebnisText = "ANGENOMMEN";
+    else if (typ === "absolut" && ja > gesamt/2) ergebnisText = "ANGENOMMEN";
+    else if (typ === "zweidrittel" && ja >= gesamt*(2/3)) ergebnisText = "ANGENOMMEN";
+    else ergebnisText = "ABGELEHNT";
+
+    document.getElementById("aktMehrheit").innerText = ergebnisText;
+    document.getElementById("typ").innerText = typ;
+    document.getElementById("gesamt").innerText = gesamt;
+
+    zeichneHalbkreis();
+    speichereHistorie(typ, ja, nein, enth, ergebnisText);
+}
+
+function zeichneHalbkreis() {
+    const h = document.getElementById("halbkreis");
+    h.innerHTML = "";
+    let total = fraktionen.reduce((a,f)=>a+f.sitze,0);
+    let index = 0;
+
+    fraktionen.forEach(f => {
+        for(let i=0;i<f.sitze;i++) {
+            let angle = Math.PI * (index / total);
+            let r = 200;
+            let x = 250 + r * Math.cos(Math.PI - angle);
+            let y = 240 - r * Math.sin(Math.PI - angle);
+
+            let s = document.createElement("div");
+            s.className = "sitz";
+            s.style.left = x+"px";
+            s.style.top = y+"px";
+
+            // Farbe nach Abstimmung
+            if (i < f.sitze - f.abweichler) {
+                if (f.stimme === "ja") s.style.background = "green";
+                else if (f.stimme === "nein") s.style.background = "red";
+                else if (f.stimme === "enthaltung") s.style.background = "yellow";
+                else s.style.background = "#999";
+            } else {
+                // Abweichler
+                if (f.abweichStimme === "ja") s.style.background = "green";
+                else if (f.abweichStimme === "nein") s.style.background = "red";
+                else s.style.background = "yellow";
+            }
+
+            h.appendChild(s);
+            index++;
+        }
+    });
+}
+
+function speichereHistorie(typ, ja, nein, enth, ergebnis) {
+    const datum = new Date().toLocaleString();
+    const abst = {datum, typ, ja, nein, enth, ergebnis};
+    abstimmungen.unshift(abst); // neueste oben
+
+    const ul = document.getElementById("historie");
+    ul.innerHTML = "";
+    abstimmungen.forEach(a => {
+        const li = document.createElement("li");
+        li.textContent = `[${a.datum}] Typ: ${a.typ} | Ja: ${a.ja} | Nein: ${a.nein} | Enthaltung: ${a.enth} → ${a.ergebnis}`;
+        ul.appendChild(li);
+    });
+}
+</script>
+</body>
+</html>
